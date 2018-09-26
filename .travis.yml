@@ -1,67 +1,40 @@
 sudo: false
-dist: trusty
-
 language: php
-
 notifications:
   email:
     on_success: never
     on_failure: change
-
 branches:
   only:
-    - master
-
+  - master
+  - "/^v?[0-9\\.]+/"
 cache:
-  directories:
-    - $HOME/.composer/cache
-
-matrix:
-  include:
-    - php: 7.2
-      env: WP_VERSION=latest
-    - php: 7.1
-      env: WP_VERSION=latest
-    - php: 7.0
-      env: WP_VERSION=latest
-    - php: 5.6
-      env: WP_VERSION=4.5
-    - php: 5.6
-      env: WP_VERSION=latest
-    - php: 5.6
-      env: WP_VERSION=trunk
-    - php: 5.6
-      env: WP_TRAVISCI=phpcs
-    - php: 5.3
-      env: WP_VERSION=latest
-      dist: precise
-
+- composer
+- "$HOME/.composer/cache"
+php:
+- 7.0
+- 7.2
+env:
+- WP_VERSION=latest WP_MULTISITE=0
+- WP_VERSION=nightly WP_MULTISITE=0
 before_script:
-  - export PATH="$HOME/.composer/vendor/bin:$PATH"
-  - |
-    if [ -f ~/.phpenv/versions/$(phpenv version-name)/etc/conf.d/xdebug.ini ]; then
-      phpenv config-rm xdebug.ini
-    else
-      echo "xdebug.ini does not exist"
-    fi
-  - |
-    if [[ ! -z "$WP_VERSION" ]] ; then
-      bash bin/install-wp-tests.sh wordpress_test root '' localhost $WP_VERSION
-      composer global require "phpunit/phpunit=4.8.*|5.7.*"
-    fi
-  - |
-    if [[ "$WP_TRAVISCI" == "phpcs" ]] ; then
-      composer global require wp-coding-standards/wpcs
-      phpcs --config-set installed_paths $HOME/.composer/vendor/wp-coding-standards/wpcs
-    fi
-
+- export PATH="$HOME/.composer/vendor/bin:$PATH"
+- bash bin/install-wp-tests.sh wordpress_test root '' localhost $WP_VERSION
+- composer global require "phpunit/phpunit=4.8.*|5.7.*"
+- composer instal
+- npm install && npm run build
 script:
-  - |
-    if [[ ! -z "$WP_VERSION" ]] ; then
-      phpunit
-      WP_MULTISITE=1 phpunit
-    fi
-  - |
-    if [[ "$WP_TRAVISCI" == "phpcs" ]] ; then
-      phpcs
-    fi
+- phpunit
+after_success:
+- sed -i -e "s/nightly/${TRAVIS_TAG}/" _author.php
+- curl https://raw.githubusercontent.com/miya0001/auto-build/master/auto-build.sh
+  | bash
+deploy:
+  provider: releases
+  skip_cleanup: true
+  api_key:
+    secure: yG4M/uVDIVrjJiCtpB49y705ByKLus+vnSbpot2z2cPJLgLqB1C9M6An5pUw/tfdqAYStOkOJ9SrPQ5kUuwtJ45LzPMBw9Xeo5OO6CBmdDWMv3S9xmzfT6DM38k9Oj/MYk6fk2UfHLyiPBjPKH6KmcXhU9ob2IhlgOMwn22BLwzqiUB6AK+cuCu5o+KB0UDJojTQx/0oGAyAE2db8KnaDBcinyddiuCj4e2w3lOcV29f+K8PmFCP4hMKQbRaJyR3M5ogiKu93DLYHTghAihcHD8JiKLlmjVVETbpxLHz2LQ0xbDPq9/6y05DHuM2eZvrDLuF72ioNtaCPqPzpXfAgZyNA2Rw8SFDDHse56ICpYv45aQBBgSXrMjYTtwzbWQjp95iVQiAF2jPfW9QAFm6sWWC7yEU9u1r2MCfqqskIj41caOx7tRBEhcHY+sB7UKzORSe8Fie4Mup8M5K+LSzFHYJCVzL3TFlob34RbMe3AXgOJnlxZPcRMzIodhr5WvNMaJDm7EZ1gm6xzaNq/8kTykLeiXiFfGPEiqF1n/77ZPTotzyi+GEZZgLQgZgBJ59SeX1/TgKse7Tuohe0WpU2iB6zXP+lRp22tcU1+QXgqzOFI1zr0WCYS3nKoXmekBoal/RlJocgFUNUYs3kCHwwVV6ZMWsEWtWpiFyUwPWzsY=
+  file: _author.zip
+  on:
+    tags: true
+    repo: miya0001/_author
